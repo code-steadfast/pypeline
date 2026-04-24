@@ -60,6 +60,7 @@ def run(
         "-i",
         help="Provide input parameters as key=value pairs (e.g., -i name=value -i flag=true).",
     ),
+    command: Optional[str] = typer.Option(None, help="Command to append and execute as a final step after the scheduled pipeline steps."),
 ) -> None:
     project_dir = project_dir.absolute()
     project_slurper = ProjectSlurper(project_dir, config_file)
@@ -86,7 +87,14 @@ def run(
         inputs_dict = InputsParser.from_inputs_definitions(input_definitions).parse_inputs(inputs)
     else:
         inputs_dict = {}
-    PipelineStepsExecutor[ExecutionContext](ExecutionContext(project_dir, inputs=inputs_dict), steps_references, force_run, dry_run).run()
+    execution_context = ExecutionContext(project_dir, inputs=inputs_dict)
+    PipelineStepsExecutor[ExecutionContext](execution_context, steps_references, force_run, dry_run).run()
+    if command:
+        execution_context.create_process_executor(
+            command.split(),  # type: ignore[arg-type]  # List invariance: list[str] vs list[str | Path]
+            cwd=project_dir,
+        ).execute()
+
 
 def main() -> None:
     try:
