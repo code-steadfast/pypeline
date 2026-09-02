@@ -205,6 +205,49 @@ class StepsConfig(DataClassDictMixin):
 
 The same step definitions can live in YAML, JSON, or any format that produces a list of dicts with `step`, `file`/`module`, and `config` keys.
 
+## Keep `include:` Working
+
+`PipelineConfig` carries `include:` entries, but expanding them is done by the loader,
+not by the scheduler. If you parse the config file yourself, call `assemble_pipeline`
+on the result; skipping it is a silent failure, where the included steps are simply
+absent from the run.
+
+```python
+from pypeline.domain.config import assemble_pipeline
+
+@dataclass
+class StepsConfig(DataClassDictMixin):
+  my_steps: PipelineConfig
+
+  @classmethod
+  def from_file(cls, config_file: Path) -> "StepsConfig":
+    with open(config_file) as fs:
+      config = cls.from_dict(yaml.safe_load(fs))
+    config.my_steps = assemble_pipeline(config.my_steps, config_file)
+    return config
+```
+
+`assemble_pipeline` also stamps each step's output group and validates the entries, so
+an included step keeps the cache identity of the file that defines it.
+
+An included file is a file with a top-level `pipeline:` key:
+
+```yaml
+# fragments/bootstrap.yaml
+pipeline:
+  - step: CreateVEnv
+    module: pypeline.steps.create_venv
+```
+
+Two things are worth knowing about fragments:
+
+- **Include paths are relative to the including file.** An absolute path is used as
+  given, so if your application has its own file lookup, resolve the path yourself and
+  pass an absolute one.
+- **A fragment is only as portable as its steps.** If its steps are typed to your own
+  step base class, the fragment is loadable by your application and not by
+  `pypeline run`, even though the file format is the same.
+
 ## Key Classes
 
 | Class | Purpose |

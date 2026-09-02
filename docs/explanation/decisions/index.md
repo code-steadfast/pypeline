@@ -8,4 +8,5 @@ context that motivated them, the alternatives weighed, and the consequences.
 
 0001-revision-scoped-west-dependency-paths
 0002-publish-installed-dependencies-to-data-registry
+0003-pipeline-assembly-is-public
 ```

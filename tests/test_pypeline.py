@@ -8,7 +8,7 @@ import pytest
 from py_app_dev.core.exceptions import UserNotificationException
 
 from pypeline.domain.artifacts import ProjectArtifactsLocator
-from pypeline.domain.config import ProjectConfig
+from pypeline.domain.config import ProjectConfig, assemble_pipeline
 from pypeline.domain.execution_context import ExecutionContext
 from pypeline.domain.pipeline import PipelineConfig, PipelineStep, PipelineStepConfig, PipelineStepReference
 from pypeline.pypeline import PipelineScheduler, PipelineStepsExecutor, RunCommandClassFactory
@@ -771,3 +771,40 @@ def test_filter_steps_missing_step_raises_exception(sample_steps: List[PipelineS
         PipelineScheduler.filter_steps(sample_steps[:2], ["MissingStep"], True)
 
     assert "Steps not found in pipeline configuration: MissingStep" in str(exc_info.value)
+
+
+def test_assemble_pipeline_expands_includes_without_a_project_config(tmp_path: Path) -> None:
+    # An embedding application parses its own configuration file and borrows only the
+    # pipeline model, so the pipeline never passes through ProjectConfig.
+    (tmp_path / "bootstrap.pypeline.yaml").write_text(
+        textwrap.dedent("""\
+            pipeline:
+                - step: CreateVEnv
+                  run: echo "venv"
+            """)
+    )
+    pipeline: List[PipelineStepConfig] = [
+        PipelineStepConfig(include="bootstrap.pypeline.yaml"),
+        PipelineStepConfig(step="Build", run='echo "build"'),
+    ]
+    assembled = cast(List[PipelineStepConfig], assemble_pipeline(pipeline, tmp_path / "myapp.yaml"))
+    assert [step.step for step in assembled] == ["CreateVEnv", "Build"]
+
+
+def test_assemble_pipeline_accepts_an_absolute_include_path(tmp_path: Path) -> None:
+    # An application with its own file lookup resolves the fragment itself and passes
+    # an absolute path, which must be used as given rather than joined again.
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "tools.pypeline.yaml").write_text(
+        textwrap.dedent("""\
+            pipeline:
+                - step: Install
+                  run: echo "install"
+            """)
+    )
+    app = tmp_path / "app"
+    app.mkdir()
+    pipeline: List[PipelineStepConfig] = [PipelineStepConfig(include=str(shared / "tools.pypeline.yaml"))]
+    assembled = cast(List[PipelineStepConfig], assemble_pipeline(pipeline, app / "myapp.yaml"))
+    assert [step.step for step in assembled] == ["Install"]
