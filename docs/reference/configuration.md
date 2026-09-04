@@ -198,6 +198,8 @@ Downloads multi-repo dependencies using [west](https://docs.zephyrproject.org/la
 
 A project can select different west manifests for different configurations, and two configurations may pin the same dependency at different revisions. Because the install workspace is shared, that dependency otherwise resolves to one install path and west re-checks-out that directory each time a configuration with a different pin is built. Setting `revision_scoped_paths: true` appends each dependency's revision to its `path` (`external/zephyr` at `v3.2.0` becomes `external/zephyr/v3.2.0`), so the revisions live side by side. The flag defaults to `false` to keep the flat layout; toggling it re-runs the step.
 
+Project entries pass `clone-depth` and `west-commands` through to the generated manifest unchanged; the latter is how a Zephyr checkout provides `west build` and the other extension commands.
+
 The step supports multiple manifest sources. Beyond the configured manifest file, it collects every `WestManifestFile` registered in the execution context data registry by previous steps, and subclasses can override `_collect_manifests()` to contribute more sources. The collection order defines the override order, like git config files: the configured manifest is the base, and a later source's remote or project with the same name overrides the earlier definition. Every collected manifest file is tracked as a step input, so editing any of them re-runs the step.
 
 After installing, the step publishes one `ExternalProject` (`pypeline.domain.external_project`) per project to the data registry, each carrying the project `name`, its `revision`, and the resolved absolute install `path`. A later step finds a dependency by name instead of hardcoding where it lives:

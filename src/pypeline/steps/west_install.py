@@ -32,6 +32,8 @@ class WestDependency(ConfigElement):
     path: str
     #: Clone depth for shallow clones (optional, west native support)
     clone_depth: int | None = field(default=None, metadata={"alias": "clone-depth"})
+    #: Path, relative to the project, of the file declaring its west extension commands (what makes `west build` exist for a Zephyr checkout)
+    west_commands: str | None = field(default=None, metadata={"alias": "west-commands"})
 
 
 @dataclass

@@ -97,6 +97,16 @@ def test_west_dependency_clone_depth_none_by_default() -> None:
     assert dep.clone_depth is None
 
 
+@pytest.mark.parametrize("west_commands", [None, "scripts/west-commands.yml"])
+def test_west_dependency_west_commands_round_trip(west_commands: str | None) -> None:
+    d = {"name": "zephyr", "remote": "origin", "revision": "main", "path": "modules/zephyr"}
+    if west_commands:
+        d["west-commands"] = west_commands
+    dep = WestDependency.from_dict(d)
+    assert dep.west_commands == west_commands
+    assert dep.to_dict().get("west-commands") == west_commands
+
+
 # ============================================================================
 # WestManifest Tests
 # ============================================================================
@@ -480,6 +490,17 @@ def test_west_install_write_manifest_with_clone_depth(west_execution_context: Mo
     # Check clone-depth is converted back (not clone_depth)
     assert project["clone-depth"] == 1
     assert "clone_depth" not in project
+
+
+def test_west_install_write_manifest_keeps_west_commands(west_execution_context: Mock) -> None:
+    step = WestInstall(west_execution_context, "group_name")
+    dep = WestDependency(name="zephyr", remote="origin", revision="v4.4.0", path="zephyr", west_commands="scripts/west-commands.yml")
+    manifest = WestManifest(remotes=[WestRemote(name="origin", url_base="https://github.com/org")], projects=[dep])
+
+    step._write_west_manifest_file(manifest)
+
+    project = yaml.safe_load(step._output_manifest_file.read_text())["manifest"]["projects"][0]
+    assert project["west-commands"] == "scripts/west-commands.yml"
 
 
 def test_west_install_write_manifest_skips_empty(west_execution_context: Mock) -> None:
